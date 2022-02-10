@@ -29,8 +29,8 @@ def home():
         f"Precipitation:/precipitation<br/>"
         f"Stations:/stations<br/>"
         f"Temperature Observations:/tobs<br/>"
-        f"Temperature Summary for the start date(yyyy-mm-dd):/api/v1.0/<start><br/>"
-        f"Temperature Summary for the selected period:/api/v1.0/<start>/<end><br/>"
+        f"Temperature Summary for the start date(yyyy-mm-dd):/<start><br/>"
+        f"Temperature Summary for the selected period:/<start>/<end><br/>"
     )
 
 # Route to precipiation
@@ -38,7 +38,7 @@ def home():
 def precipitation():
     session = Session(engine)
     prec = [Measurement.date, Measurement.prec]
-    prec_query = session.query(*sel).all()
+    prec_query = session.query(*prec).all()
     session.close()
 
     precipitation = []
@@ -73,24 +73,60 @@ def stations():
     return jsonify(stations)
   
 
-# Route to List of Temperature Observations
-@app.route("/tobs")
-def temperature():
-     session = Session(engine)
-     active_station = session.query(Measurement.date, Measurement.tobs).\
-                        filter(Measurement.date >= '2016-08-23').\
-                        filter(Measurement.date <= '2017-08-23').\
-                        filter(Measurement.station == 'USC00519281').all()
-    sel = [Measurement.date, Measurement.tobs]
-    station_query = session.query(*sel).filter(Measurement.station == 'USC00519281')
+# Route to List of Temperature Observations for most active station
+# @app.route("/tobs")
+# def temperature():
+#      session = Session(engine)
+#      active_station = session.query(Measurement.date, Measurement.tobs).\
+#                         filter(Measurement.date >= '2016-08-23').\
+#                         filter(Measurement.date <= '2017-08-23').\
+#                         filter(Measurement.station == 'USC00519281').all()
+#     sel = [Measurement.date, Measurement.tobs]
+#     station_query = session.query(*sel).filter(Measurement.station == 'USC00519281')
+#     session.close()
+
+#     tobs_json = []
+
+#     for date, tobs in station_query:
+#         tobs_dict = {}
+#         tobs_dict["Date"] = date
+#         tobs_dict["Tobs"] = tobs
+#         tobs_json.append(tobs_dict)
+
+#     return jsonify(tobs_json)
+
+# Route for TOBS for given Start Date
+@app.route("/<start>")
+def start_date(start):
+    session = Session(engine)
+    start_result = session.query(func.min(Measurement.tobs), func.avg(Measurement.tobs), func.max(Measurement.tobs)).\
+        filter(Measurement.date >= start).all()
     session.close()
 
     tobs_json = []
-
-    for date, tobs in station_query:
+    for min,avg,max in start_result:
         tobs_dict = {}
-        tobs_dict["Date"] = date
-        tobs_dict["Tobs"] = tobs
+        tobs_dict["Min"] = min
+        tobs_dict["Average"] = avg
+        tobs_dict["Max"] = max
+        tobs_json.append(tobs_dict)
+
+    return jsonify(tobs_json)
+
+# Route for TOBS for given start and end range
+@app.route("/<start>/<stop>")
+def get_t_start_stop(start,end):
+    session = Session(engine)
+    query = session.query(func.min(Measurement.tobs), func.avg(Measurement.tobs), func.max(Measurement.tobs)).\
+        filter(Measurement.date >= start).filter(Measurement.date <= end).all()
+    session.close()
+
+    tobs_json = []
+    for min,avg,max in query:
+        tobs_dict = {}
+        tobs_dict["Min"] = min
+        tobs_dict["Average"] = avg
+        tobs_dict["Max"] = max
         tobs_json.append(tobs_dict)
 
     return jsonify(tobs_json)
